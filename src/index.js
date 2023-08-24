@@ -54,6 +54,7 @@ async function getAllPlaylistItems(apiKey, playlistId) {
 
     return allItems
   } catch (error) {
+    isNotSubmitting()
     alert('Error: Invalid playlist ID or playlist is set to private')
     return null
   }
@@ -98,19 +99,14 @@ async function getChannel(apiKey, channelId) {
 
     return data
   } catch (error) {
+    isNotSubmitting()
     alert('Error:', error)
     return null
   }
 }
 
 async function populateList(playlistId, auth) {
-
-  button.disabled = true
-  const loading = document.querySelector('#loading')
-  const submitText = document.querySelector('button p')
-  submitText.classList.add('hidden')
-  loading.classList.remove('hidden')
-
+  isSubmitting()
   const playlist = await getAllPlaylistItems(auth, playlistId)
 
 
@@ -122,6 +118,7 @@ async function populateList(playlistId, auth) {
         const details = await getChannel(auth, channelId)
         return details
       } catch (error) {
+        isNotSubmitting()
         alert('Error fetching channel details:', error)
         return null
       }
@@ -148,9 +145,24 @@ async function populateList(playlistId, auth) {
         list.insertAdjacentHTML('beforeend', listItem)
       }
 
-      loading.classList.add('hidden')
-      submitText.classList.remove('hidden')
-      button.disabled = false
+      isNotSubmitting()
     })()
   }
+}
+
+
+function isSubmitting() {
+  button.disabled = true
+  const loading = document.querySelector('#loading')
+  const submitText = document.querySelector('button p')
+  submitText.classList.add('hidden')
+  loading.classList.remove('hidden')
+}
+
+function isNotSubmitting() {
+  const loading = document.querySelector('#loading')
+  const submitText = document.querySelector('button p')
+  loading.classList.add('hidden')
+  submitText.classList.remove('hidden')
+  button.disabled = false
 }
