@@ -7,14 +7,14 @@ const button = document.querySelector('button')
 form.addEventListener('submit', async (e) => {
   e.preventDefault()
 
-  const pattern = /list=([A-Za-z0-9_-]+)/;
+  const pattern = /list=([A-Za-z0-9_-]+)/
 
-  const match = input.value.match(pattern);
+  const match = input.value.match(pattern)
   if (match) {
-      const playlistId = match[1];  // This will hold the extracted playlist ID
-      populateList(playlistId, auth)
+    const playlistId = match[1] // This will hold the extracted playlist ID
+    populateList(playlistId, auth)
   } else {
-      populateList(input.value, auth)
+    populateList(input.value, auth)
   }
 })
 
@@ -33,7 +33,7 @@ async function getAllPlaylistItems(apiKey, playlistId) {
 
     do {
       let params = new URLSearchParams({
-        part: 'snippet',
+        part: 'snippet,contentDetails,status',
         playlistId: playlistId,
         maxResults: 50,
         key: apiKey
@@ -44,9 +44,7 @@ async function getAllPlaylistItems(apiKey, playlistId) {
       }
 
       const response = await fetch(`${baseUrl}?${params.toString()}`)
-      console.log(response);
       const data = await response.json()
-
       allItems.push(...data.items)
 
       nextPageToken = data.nextPageToken
@@ -76,21 +74,17 @@ async function countVideosFromChannel(playlist) {
     }
   })
 
-  //sort by count
-  const sortable = Object.fromEntries(
-    Object.entries(channelCount).sort(([, a], [, b]) => b.count - a.count)
-  )
-
-  return sortable
+  return channelCount
 }
 
-async function getChannel(apiKey, channelId) {
+async function getChannels(apiKey, channelId) {
   const baseUrl = 'https://www.googleapis.com/youtube/v3/channels'
 
   try {
     const params = new URLSearchParams({
       part: 'snippet',
       id: channelId,
+      maxResults: 50,
       key: apiKey
     })
 
@@ -109,27 +103,35 @@ async function populateList(playlistId, auth) {
   isSubmitting()
   const playlist = await getAllPlaylistItems(auth, playlistId)
 
-
   if (playlist) {
     const videoCount = await countVideosFromChannel(playlist)
-
-    async function fetchChannelDetails(auth, channelId) {
-      try {
-        const details = await getChannel(auth, channelId)
-        return details
-      } catch (error) {
-        isNotSubmitting()
-        alert('Error fetching channel details:', error)
-        return null
-      }
-    }
+    const ids = Object.keys(videoCount)
+    let channels = []
 
     ;(async () => {
-      for (const channelId of Object.keys(videoCount)) {
-        const channel = videoCount[channelId]
-        const details = await fetchChannelDetails(auth, channelId)
-        const channelURL = `https://www.youtube.com/channel/${channelId}`
-        let profileImage = details?.items[0]?.snippet?.thumbnails?.default?.url
+      // because the maxResult is limited to 50, the request function will increments by 50 until the length of the videoCount.
+      let flag = 0
+      do {
+        const result = await getChannels(auth, ids.slice(flag, flag + 50))
+        channels.push(...result.items)
+        if (flag > ids.length) {
+          flag = ids.length - channels.length
+        } else {
+          flag += 50
+        }
+      } while (channels.length != ids.length)
+
+      channels = channels.map((channel) => ({
+        id: channel.id,
+        ...channel.snippet,
+        count: videoCount[channel.id].count
+      }))
+
+      const sortedResult = channels.sort((a, b) => b.count - a.count)
+
+      sortedResult.forEach(async (channel) => {
+        const channelURL = `https://www.youtube.com/channel/${channel.id}`
+        let profileImage = channel?.thumbnails?.default?.url
 
         const listItem = /*html*/ `
           <li class="flex items-center justify-between group mb-2">
@@ -143,13 +145,12 @@ async function populateList(playlistId, auth) {
           </li>
         `
         list.insertAdjacentHTML('beforeend', listItem)
-      }
+      })
 
       isNotSubmitting()
     })()
   }
 }
-
 
 function isSubmitting() {
   button.disabled = true
