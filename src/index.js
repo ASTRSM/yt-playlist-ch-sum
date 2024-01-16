@@ -129,6 +129,8 @@ async function populateList(playlistId, auth) {
 
       const sortedResult = channels.sort((a, b) => b.count - a.count)
 
+      list.innerHTML = '';
+
       sortedResult.forEach(async (channel) => {
         const channelURL = `https://www.youtube.com/channel/${channel.id}`
         let profileImage = channel?.thumbnails?.default?.url
